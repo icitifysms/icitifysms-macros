@@ -20,6 +20,18 @@ pub fn update_release_impl(input: TokenStream) -> TokenStream {
         }
     };
 
+    if variants.is_empty() {
+        return Error::new_spanned(
+            name,
+            "Release enum must have at least one variant",
+        )
+        .to_compile_error()
+        .into();
+    }
+
+    // The first variant is always the latest release.
+    let latest_variant = &variants.first().unwrap().ident;
+
     let mut conversions = Vec::new();
     let mut reverse_conversions = Vec::new();
     let mut executions = Vec::new();
@@ -122,14 +134,6 @@ pub fn update_release_impl(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl From<#name> for semver::Version {
-            fn from(release: #name) -> Self {
-                match release {
-                    #(#reverse_conversions,)*
-                }
-            }
-        }
-
         impl std::fmt::Display for #name {
             fn fmt(
                 &self,
@@ -144,14 +148,19 @@ pub fn update_release_impl(input: TokenStream) -> TokenStream {
         }
 
         impl #name {
+            /// Returns the latest release (the first enum variant).
+            pub fn latest() -> Self {
+                Self::#latest_variant
+            }
 
+            /// Returns the semantic version of this release.
             pub fn version(&self) -> semver::Version {
                 match self {
                     #(#reverse_conversions,)*
                 }
             }
-            
 
+            /// Executes the update associated with this release.
             pub async fn execute(
                 &self,
                 pool: &sqlx::MySqlPool,
