@@ -45,7 +45,7 @@ pub fn update_releases_impl(input: TokenStream) -> TokenStream {
 
         executions.push(quote! {
             Self::#variant_name => {
-                crate::updates::releases::#module::execute(update_id, db).await
+                #module::execute(update_id, db).await
             }
         });
     }
