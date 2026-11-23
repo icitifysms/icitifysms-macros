@@ -103,7 +103,7 @@ pub fn update_release_impl(input: TokenStream) -> TokenStream {
 
         executions.push(quote! {
             Self::#variant_name => {
-                #module::execute(*self, pool).await
+                #module::execute(pool).await
             }
         });
     }
