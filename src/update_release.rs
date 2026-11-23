@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput, Error};
 
-pub fn update_releases_impl(input: TokenStream) -> TokenStream {
+pub fn update_release_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     let name = &input.ident;
@@ -13,7 +13,7 @@ pub fn update_releases_impl(input: TokenStream) -> TokenStream {
         _ => {
             return Error::new_spanned(
                 name,
-                "UpdateReleases can only be derived for enums",
+                "UpdateRelease can only be derived for enums",
             )
             .to_compile_error()
             .into();
@@ -31,7 +31,7 @@ pub fn update_releases_impl(input: TokenStream) -> TokenStream {
         if !matches!(variant.fields, syn::Fields::Unit) {
             return Error::new_spanned(
                 variant,
-                "UpdateReleases variants must be unit variants",
+                "UpdateRelease variants must be unit variants",
             )
             .to_compile_error()
             .into();

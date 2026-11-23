@@ -3,11 +3,11 @@ mod enum_extra;
 mod cli_enum;
 mod reverse_ord;
 mod parse_enum;
-mod update_releases;
+mod update_release;
 
 use proc_macro::TokenStream;
 
-use crate::{cli_enum::derive_cli_enum_impl, enum_extra::derive_enum_extra_impl, openapi::secured_path::secured_path_impl, parse_enum::parse_enum_impl, reverse_ord::derive_reverse_ord_impl, update_releases::update_releases_impl};
+use crate::{cli_enum::derive_cli_enum_impl, enum_extra::derive_enum_extra_impl, openapi::secured_path::secured_path_impl, parse_enum::parse_enum_impl, reverse_ord::derive_reverse_ord_impl, update_release::update_release_impl};
 
 
 
@@ -53,7 +53,7 @@ pub fn parse_enum(input: TokenStream) -> TokenStream {
     parse_enum_impl(input)
 }
 
-#[proc_macro_derive(UpdateReleases)]
-pub fn update_releases(input: TokenStream) -> TokenStream {
-    update_releases_impl(input)
+#[proc_macro_derive(UpdateRelease)]
+pub fn update_release(input: TokenStream) -> TokenStream {
+    update_release_impl(input)
 }
