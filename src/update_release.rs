@@ -144,6 +144,14 @@ pub fn update_release_impl(input: TokenStream) -> TokenStream {
         }
 
         impl #name {
+
+            pub fn version(&self) -> semver::Version {
+                match self {
+                    #(#reverse_conversions,)*
+                }
+            }
+            
+
             pub async fn execute(
                 &self,
                 pool: &sqlx::MySqlPool,
