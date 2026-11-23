@@ -45,7 +45,7 @@ pub fn update_releases_impl(input: TokenStream) -> TokenStream {
 
         executions.push(quote! {
             Self::#variant_name => {
-                #module::execute(release, pool).await
+                #module::execute(version, pool).await
             }
         });
     }
@@ -73,7 +73,7 @@ pub fn update_releases_impl(input: TokenStream) -> TokenStream {
         impl #name {
             pub async fn execute(
                 &self,
-                release: &semver::Version,
+                version: &semver::Version,
                 pool: &sqlx::MySqlPool,
             ) -> eyre::Result<()> {
                 match self {
