@@ -1,7 +1,7 @@
+
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Data};
-
+use syn::{parse_macro_input, Data, DeriveInput, Error};
 
 pub fn update_releases_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -10,32 +10,68 @@ pub fn update_releases_impl(input: TokenStream) -> TokenStream {
 
     let variants = match &input.data {
         Data::Enum(data) => &data.variants,
-        _ => panic!("UpdateReleases can only be derived for enums"),
+        _ => {
+            return Error::new_spanned(
+                name,
+                "UpdateReleases can only be derived for enums",
+            )
+            .to_compile_error()
+            .into();
+        }
     };
 
     let mut conversions = Vec::new();
+    let mut reverse_conversions = Vec::new();
     let mut executions = Vec::new();
+    let mut displays = Vec::new();
 
     for variant in variants {
         let variant_name = &variant.ident;
 
-        let version = variant_name
-            .to_string()
-            .strip_prefix("V")
-            .unwrap()
-            .replace('_', ".");
+        if !matches!(variant.fields, syn::Fields::Unit) {
+            return Error::new_spanned(
+                variant,
+                "UpdateReleases variants must be unit variants",
+            )
+            .to_compile_error()
+            .into();
+        }
 
-        let parts: Vec<_> = version
-            .split('.')
-            .map(|part| part.parse::<u64>().unwrap())
-            .collect();
+        let variant_string = variant_name.to_string();
+
+        let Some(version) = variant_string.strip_prefix("V") else {
+            return Error::new_spanned(
+                variant_name,
+                "Release variants must start with V (e.g. V8_31_0)",
+            )
+            .to_compile_error()
+            .into();
+        };
+
+        let parts: Vec<u64> = match version
+            .split('_')
+            .map(str::parse::<u64>)
+            .collect::<Result<Vec<_>, std::num::ParseIntError>>()
+        {
+            Ok(parts) if parts.len() == 3 => parts,
+            _ => {
+                return Error::new_spanned(
+                    variant_name,
+                    "Invalid release version. Expected V8_31_0",
+                )
+                .to_compile_error()
+                .into();
+            }
+        };
 
         let major = parts[0];
         let minor = parts[1];
         let patch = parts[2];
 
+        let version_string = version.replace('_', ".");
+
         let module = syn::Ident::new(
-            &format!("v{}", version.replace('.', "_")),
+            &format!("v{version}"),
             variant_name.span(),
         );
 
@@ -43,9 +79,19 @@ pub fn update_releases_impl(input: TokenStream) -> TokenStream {
             (#major, #minor, #patch) => Ok(Self::#variant_name)
         });
 
+        reverse_conversions.push(quote! {
+            #name::#variant_name => {
+                semver::Version::new(#major, #minor, #patch)
+            }
+        });
+
+        displays.push(quote! {
+            #name::#variant_name => #version_string
+        });
+
         executions.push(quote! {
             Self::#variant_name => {
-                #module::execute(version, pool).await
+                #module::execute(pool).await
             }
         });
     }
@@ -55,12 +101,18 @@ pub fn update_releases_impl(input: TokenStream) -> TokenStream {
             type Error = eyre::Error;
 
             fn try_from(
-                version: &semver::Version
+                version: &semver::Version,
             ) -> eyre::Result<Self> {
+                if !version.pre.is_empty() || !version.build.is_empty() {
+                    eyre::bail!(
+                        "Unsupported release: {version}"
+                    );
+                }
+
                 match (
                     version.major,
                     version.minor,
-                    version.patch
+                    version.patch,
                 ) {
                     #(#conversions,)*
                     _ => eyre::bail!(
@@ -70,10 +122,30 @@ pub fn update_releases_impl(input: TokenStream) -> TokenStream {
             }
         }
 
+        impl From<#name> for semver::Version {
+            fn from(release: #name) -> Self {
+                match release {
+                    #(#reverse_conversions,)*
+                }
+            }
+        }
+
+        impl std::fmt::Display for #name {
+            fn fmt(
+                &self,
+                f: &mut std::fmt::Formatter<'_>,
+            ) -> std::fmt::Result {
+                let version = match self {
+                    #(#displays,)*
+                };
+
+                write!(f, "{version}")
+            }
+        }
+
         impl #name {
             pub async fn execute(
                 &self,
-                version: &semver::Version,
                 pool: &sqlx::MySqlPool,
             ) -> eyre::Result<()> {
                 match self {
