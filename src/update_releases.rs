@@ -73,8 +73,6 @@ pub fn update_releases_impl(input: TokenStream) -> TokenStream {
         impl #name {
             pub async fn execute(
                 &self,
-                update_id: &str,
-                db: &sqlx::MySqlPool,
             ) -> eyre::Result<()> {
                 match self {
                     #(#executions,)*
